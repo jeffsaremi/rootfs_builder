@@ -2,7 +2,7 @@
     "Name": "",
     "Archive": "/tmp/downloads/nginx.tar",
     "Spec": {
-        "Dest": "/tmp/alpine",
+        "Dest": "/tmp/nginx",
         "User": "root"
     }
 }
