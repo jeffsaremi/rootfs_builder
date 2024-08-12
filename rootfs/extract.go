@@ -10,6 +10,7 @@ package rootfs
 
 import (
 	"archive/tar"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -19,7 +20,6 @@ import (
 
 	"github.com/ForAllSecure/rootfs_builder/log"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/v1util"
 	"github.com/pkg/errors"
 )
 
@@ -177,9 +177,39 @@ func handleFiles(tr *tar.Reader, rootfs string, subuid int, subgid int) error {
 	return nil
 }
 
+// readAndCloser implements io.ReadCloser by reading from a particular io.Reader
+// and then calling the provided "Close()" method.
+type readAndCloser struct {
+	io.Reader
+	CloseFunc func() error
+}
+
+// Close implements io.ReadCloser
+func (rac *readAndCloser) Close() error {
+	return rac.CloseFunc()
+}
+
+// GunzipReadCloser reads compressed input data from the io.ReadCloser and
+// returns an io.ReadCloser from which uncompessed data may be read.
+func GunzipReadCloser(r io.ReadCloser) (io.ReadCloser, error) {
+	gr, err := gzip.NewReader(r)
+	if err != nil {
+		return nil, err
+	}
+	return &readAndCloser{
+		Reader: gr,
+		CloseFunc: func() error {
+			if err := gr.Close(); err != nil {
+				return err
+			}
+			return r.Close()
+		},
+	}, nil
+}
+
 // Get a tar reader from a v1.Layer
 func tarReader(layer_file *os.File) (*tar.Reader, error) {
-	r, err := v1util.GunzipReadCloser(layer_file)
+	r, err := GunzipReadCloser(layer_file)
 	if err != nil {
 		return nil, err
 	}

@@ -61,7 +61,11 @@ func NewPullableImage(path string) (*PullableImage, error) {
 
 func (pullable *PullableImage) PullFromTar() (*PulledImage, error) {
 	log.Debugf("Reading image from tarball %s", pullable.Archive)
-	image, err := tarball.ImageFromPath(pullable.Archive, nil)
+	var tag *name.Tag = nil
+	if pullable.Name == "" {
+		*tag, _ = name.NewTag(pullable.Name)
+	}
+	image, err := tarball.ImageFromPath(pullable.Archive, tag)
 	if err != nil {
 		return nil, err
 	}
