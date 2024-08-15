@@ -21,7 +21,10 @@ import (
 	"github.com/ForAllSecure/rootfs_builder/log"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/pkg/errors"
+	"github.com/pkg/xattr"
 )
+
+const paxSchilyXattr = "SCHILY.xattr."
 
 // extract a single file
 func extractFile(dest string, hdr *tar.Header, tr io.Reader, subuid int, subgid int) error {
@@ -62,6 +65,19 @@ func extractFile(dest string, hdr *tar.Header, tr io.Reader, subuid int, subgid 
 		}
 		if err = currFile.Chown(uid, gid); err != nil {
 			return err
+		}
+		if len(hdr.PAXRecords) > 0 {
+			xattributes := map[string]string{}
+			for key, value := range hdr.PAXRecords {
+				if strings.HasPrefix(key, paxSchilyXattr) {
+					xattributes[key[len(paxSchilyXattr):]] = value
+				}
+			}
+			for key, value := range xattributes {
+				if err = xattr.Set(path, key, []byte(value)); err != nil {
+					return err
+				}
+			}
 		}
 		currFile.Close()
 	case tar.TypeDir:
